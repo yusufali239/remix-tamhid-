@@ -25,6 +25,7 @@ val TamhidEmeraldLight = Color(0xFF4C8245)
 val TamhidSageContainer = Color(0xFFD1E8CF)
 val TamhidGold = Color(0xFFB8860B)
 val TamhidGoldLight = Color(0xFFD4AF37)
+val TamhidGoldContainer = Color(0xFFFBF4D9)
 
 val TamhidBgLight = Color(0xFFFDFCFB)
 val TamhidSurfaceLight = Color(0xFFFFFFFF)

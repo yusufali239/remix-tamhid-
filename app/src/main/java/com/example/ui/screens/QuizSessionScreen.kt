@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,17 +51,6 @@ fun QuizSessionScreen(
         }
         val scorePercent = (correctCount * 100) / questions.size
 
-        val context = LocalContext.current
-        val shareQuizResult = {
-            val shareBody = "«At-Tamhid» ilovasida imtihon natijam:\n\nNatija: $scorePercent%\nTo'g'ri javoblar: $correctCount / ${questions.size} ta\n\n— «At-Tamhid» Moturidiya kalom ilmi ilovasi"
-            val sendIntent = android.content.Intent().apply {
-                action = android.content.Intent.ACTION_SEND
-                putExtra(android.content.Intent.EXTRA_TEXT, shareBody)
-                type = "text/plain"
-            }
-            context.startActivity(android.content.Intent.createChooser(sendIntent, "Imtihon natijasini ulashish"))
-        }
-
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -70,14 +58,6 @@ fun QuizSessionScreen(
                     navigationIcon = {
                         IconButton(onClick = { viewModel.navigateTo("darslik") }) {
                             Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Darslik")
-                        }
-                    },
-                    actions = {
-                        IconButton(onClick = shareQuizResult) {
-                            Icon(
-                                imageVector = Icons.Outlined.Share,
-                                contentDescription = "Natijani ulashish"
-                            )
                         }
                     }
                 )

@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FormatSize
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -475,6 +474,7 @@ private fun ReaderParagraphBlock(
 ) {
     var isArabicExpanded by remember { mutableStateOf(showArabicDefault) }
     var isFootnoteExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // If paragraph contains significant quote from Imam al-Lamishi, render with TamhidQuoteBlock
     val isImamQuote = paragraph.arabicText.contains("قال الشيخ") ||
@@ -493,17 +493,6 @@ private fun ReaderParagraphBlock(
 
             // Page number footer
             Spacer(modifier = Modifier.height(6.dp))
-            val context = LocalContext.current
-            val shareQuoteText = {
-                val shareBody = "«Kitob at-Tamhid» (Imom al-Lomishiy, ${paragraph.pageNumber}-bet, §${paragraph.paragraphNumber}):\n\n${paragraph.arabicText}\n\nTarjima:\n${paragraph.uzbekTranslation}\n\n— «At-Tamhid» madrasa ilovasi"
-                val sendIntent = android.content.Intent().apply {
-                    action = android.content.Intent.ACTION_SEND
-                    putExtra(android.content.Intent.EXTRA_TEXT, shareBody)
-                    type = "text/plain"
-                }
-                context.startActivity(android.content.Intent.createChooser(sendIntent, "Iqtibosni ulashish"))
-            }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -515,30 +504,16 @@ private fun ReaderParagraphBlock(
                     color = textColor.copy(alpha = 0.5f)
                 )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = shareQuoteText,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Share,
-                            contentDescription = "Ulashish",
-                            tint = textColor.copy(alpha = 0.6f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    IconButton(
-                        onClick = onBookmarkToggle,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                            contentDescription = "Xatcho'p",
-                            tint = if (isBookmarked) TamhidEmerald else textColor.copy(alpha = 0.4f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                IconButton(
+                    onClick = onBookmarkToggle,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isBookmarked) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = "Xatcho'p",
+                        tint = if (isBookmarked) TamhidEmerald else textColor.copy(alpha = 0.4f),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
@@ -606,26 +581,6 @@ private fun ReaderParagraphBlock(
                         }
 
                         Spacer(modifier = Modifier.width(8.dp))
-
-                        IconButton(
-                            onClick = {
-                                val shareBody = "«Kitob at-Tamhid» (Imom al-Lomishiy, ${paragraph.pageNumber}-bet, §${paragraph.paragraphNumber}):\n\n${paragraph.arabicText}\n\nTarjima:\n${paragraph.uzbekTranslation}\n\n— «At-Tamhid» madrasa ilovasi"
-                                val sendIntent = android.content.Intent().apply {
-                                    action = android.content.Intent.ACTION_SEND
-                                    putExtra(android.content.Intent.EXTRA_TEXT, shareBody)
-                                    type = "text/plain"
-                                }
-                                context.startActivity(android.content.Intent.createChooser(sendIntent, "Iqtibosni ulashish"))
-                            },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Share,
-                                contentDescription = "Ulashish",
-                                tint = textColor.copy(alpha = 0.5f),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
 
                         IconButton(
                             onClick = onBookmarkToggle,

@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -219,33 +218,11 @@ fun FlashcardsScreen(
                                 )
                             }
 
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = {
-                                        val shareBody = "«Kitob at-Tamhid» Flashcard (${currentCard.pageRef}-bet):\n\nAtama:\n${currentCard.termArabic} (${currentCard.termUz})\n\nTa'rif:\n${currentCard.definitionUz}\n\n— «At-Tamhid» madrasa ilovasi"
-                                        val sendIntent = android.content.Intent().apply {
-                                            action = android.content.Intent.ACTION_SEND
-                                            putExtra(android.content.Intent.EXTRA_TEXT, shareBody)
-                                            type = "text/plain"
-                                        }
-                                        context.startActivity(android.content.Intent.createChooser(sendIntent, "Flashcardni ulashish"))
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Share,
-                                        contentDescription = "Ulashish",
-                                        tint = TamhidEmerald,
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "${currentCard.pageRef}-bet",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TamhidEmerald
-                                )
-                            }
+                            Text(
+                                text = "${currentCard.pageRef}-bet",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TamhidEmerald
+                            )
                         }
 
                         Column(
