@@ -186,6 +186,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun openChapterParagraphInReader(chapterId: String, pageNumber: Int) {
+        val chapter = allChapters.find { it.id == chapterId || it.chapterNumber.toString() == chapterId }
+            ?: allChapters.firstOrNull()
+        if (chapter != null) {
+            selectChapter(chapter)
+            val lesson = chapter.lessons.find { pageNumber in it.pdfStartPage..it.pdfEndPage }
+                ?: chapter.lessons.firstOrNull()
+            if (lesson != null) {
+                selectLesson(lesson)
+            } else {
+                navigateTo("reader")
+            }
+        }
+    }
+
     fun completeOnboarding(name: String, age: Int) {
         viewModelScope.launch {
             dataStoreManager.setUserProfile(name.trim().ifBlank { "Tolib" }, age.coerceIn(12, 80))
@@ -235,7 +250,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         userNote: String = "",
         tags: String = ""
     ) {
-        val id = "p${pageNumber}_${chapterId}"
+        val id = if (sectionId.isNotBlank()) "${chapterId}_${sectionId}" else "p${pageNumber}_${chapterId}"
         viewModelScope.launch {
             repository.toggleBookmark(
                 id = id,

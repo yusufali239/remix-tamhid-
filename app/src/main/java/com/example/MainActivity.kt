@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleWidgetIntent(intent)
         com.example.data.worker.StudyReminderWorker.createNotificationChannel(this)
         enableEdgeToEdge()
         setContent {
@@ -56,6 +58,21 @@ class MainActivity : ComponentActivity() {
                     widthSizeClass = windowSizeClass.widthSizeClass
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleWidgetIntent(intent)
+    }
+
+    private fun handleWidgetIntent(intent: Intent?) {
+        if (intent == null) return
+        val navTarget = intent.getStringExtra("EXTRA_NAVIGATE_TO")
+        if (navTarget == "reader") {
+            val chapterId = intent.getStringExtra("EXTRA_CHAPTER_ID") ?: "ch_01"
+            val pageNumber = intent.getIntExtra("EXTRA_PAGE_NUMBER", 1)
+            mainViewModel.openChapterParagraphInReader(chapterId, pageNumber)
         }
     }
 }

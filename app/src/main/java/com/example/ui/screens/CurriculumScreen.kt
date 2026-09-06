@@ -8,17 +8,21 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Quiz
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Chapter
@@ -37,6 +41,7 @@ fun CurriculumScreen(
     val currentStreak by viewModel.currentStreak.collectAsState()
 
     var activeTab by remember { mutableStateOf("BOBLAR") } // "BOBLAR", "SINOV", "TAHLIL"
+    var bookSearchQuery by remember { mutableStateOf("") }
 
     Column(
         modifier = modifier
@@ -120,7 +125,11 @@ fun CurriculumScreen(
 
         when (activeTab) {
             "BOBLAR" -> {
-                // Chapters List using ChapterCard (No borders, 24dp rounded corners, 24dp padding)
+                val searchResults = remember(bookSearchQuery, chapters) {
+                    if (bookSearchQuery.isBlank()) emptyList()
+                    else searchAcrossEntireBook(bookSearchQuery, chapters)
+                }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -128,25 +137,142 @@ fun CurriculumScreen(
                     contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(chapters, key = { it.id }) { chapter ->
-                        val prog = readingProgress.find { it.chapterId == chapter.id }?.percent ?: 0
+                    // Full-Book Search Input Bar
+                    item {
+                        OutlinedTextField(
+                            value = bookSearchQuery,
+                            onValueChange = { bookSearchQuery = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("full_book_search_input"),
+                            placeholder = {
+                                Text(
+                                    text = "Butun kitob bo'ylab qidirish (matn, sharh, dalillar)...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Search,
+                                    contentDescription = "Qidiruv",
+                                    tint = TamhidEmerald
+                                )
+                            },
+                            trailingIcon = {
+                                if (bookSearchQuery.isNotBlank()) {
+                                    IconButton(onClick = { bookSearchQuery = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Tozalash",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = TamhidEmerald,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            )
+                        )
+                    }
 
-                        ChapterCard(
-                            chapterNumber = chapter.chapterNumber,
-                            titleUz = chapter.titleUz,
-                            titleAr = chapter.titleAr,
-                            startPage = chapter.pdfStartPage,
-                            endPage = chapter.pdfEndPage,
-                            progressPercent = prog,
-                            descriptionUz = chapter.descriptionUz,
-                            onClick = {
-                                viewModel.selectChapter(chapter)
-                                val firstLesson = chapter.lessons.firstOrNull()
-                                if (firstLesson != null) {
-                                    viewModel.selectLesson(firstLesson)
+                    if (bookSearchQuery.isNotBlank()) {
+                        // Search Results Mode
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = TamhidSageContainer.copy(alpha = 0.4f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${searchResults.size} ta natija topildi (26 ta bob bo'yicha)",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TamhidEmeraldDark
+                                    )
+                                    Text(
+                                        text = "«${bookSearchQuery.trim()}»",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
-                        )
+                        }
+
+                        if (searchResults.isEmpty()) {
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(text = "🔍", fontSize = 36.sp)
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "Hech narsa topilmadi",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "«$bookSearchQuery» bo'yicha 26 ta bob matni, arabcha iboralari va sharhlaridan hech qanday moslik chiqmadi. Boshqa so'z yoki ibora kiritib ko'ring.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            items(searchResults, key = { it.resultKey }) { result ->
+                                BookSearchResultCard(
+                                    result = result,
+                                    onClick = {
+                                        viewModel.openChapterParagraphInReader(result.chapterId, result.pageNumber)
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        // Regular 26 Chapters List
+                        items(chapters, key = { it.id }) { chapter ->
+                            val prog = readingProgress.find { it.chapterId == chapter.id }?.percent ?: 0
+
+                            ChapterCard(
+                                chapterNumber = chapter.chapterNumber,
+                                titleUz = chapter.titleUz,
+                                titleAr = chapter.titleAr,
+                                startPage = chapter.pdfStartPage,
+                                endPage = chapter.pdfEndPage,
+                                progressPercent = prog,
+                                descriptionUz = chapter.descriptionUz,
+                                onClick = {
+                                    viewModel.selectChapter(chapter)
+                                    val firstLesson = chapter.lessons.firstOrNull()
+                                    if (firstLesson != null) {
+                                        viewModel.selectLesson(firstLesson)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -757,4 +883,271 @@ data class ChapterAnalyticsData(
     val quizAttempts: Int,
     val reviewPriority: Int
 )
+
+// ============================================================================
+// Full-Book Unified Search Models & Logic (Feature 4)
+// ============================================================================
+
+data class FullBookSearchResult(
+    val resultKey: String,
+    val chapterId: String,
+    val chapterNumber: Int,
+    val chapterTitleUz: String,
+    val chapterTitleAr: String,
+    val pageNumber: Int,
+    val matchedTitle: String,
+    val arabicSnippet: String,
+    val uzbekSnippet: String,
+    val category: String // "Matn / Masala", "Kalit Tushuncha", "Aqidaviy Dalil", "Munozara & Raddiya"
+)
+
+private fun normalizeArabicText(text: String): String {
+    return text.replace(Regex("[\u064B-\u065F\u0670\u06D6-\u06ED]"), "")
+        .replace("أ", "ا")
+        .replace("إ", "ا")
+        .replace("آ", "ا")
+        .replace("ة", "ه")
+        .replace("ى", "ي")
+        .trim()
+}
+
+private fun searchAcrossEntireBook(query: String, chapters: List<Chapter>): List<FullBookSearchResult> {
+    val q = query.trim()
+    if (q.isBlank()) return emptyList()
+    val qLower = q.lowercase()
+    val qNormAr = normalizeArabicText(q)
+
+    val results = mutableListOf<FullBookSearchResult>()
+
+    chapters.forEach { chapter ->
+        chapter.lessons.forEach { lesson ->
+            // 1. Search Paragraphs (Arabic and Uzbek)
+            lesson.paragraphs.forEach { p ->
+                val matchUz = p.uzbekTranslation.contains(qLower, ignoreCase = true) ||
+                        (p.footnotes?.contains(qLower, ignoreCase = true) == true)
+                val matchAr = p.arabicText.contains(q, ignoreCase = true) ||
+                        (qNormAr.isNotBlank() && normalizeArabicText(p.arabicText).contains(qNormAr, ignoreCase = true))
+
+                if (matchUz || matchAr) {
+                    results.add(
+                        FullBookSearchResult(
+                            resultKey = "para_${chapter.id}_${p.paragraphNumber}",
+                            chapterId = chapter.id,
+                            chapterNumber = chapter.chapterNumber,
+                            chapterTitleUz = chapter.titleUz,
+                            chapterTitleAr = chapter.titleAr,
+                            pageNumber = p.pageNumber,
+                            matchedTitle = "${p.paragraphNumber}-masala",
+                            arabicSnippet = p.arabicText,
+                            uzbekSnippet = p.uzbekTranslation,
+                            category = "Matn / Masala"
+                        )
+                    )
+                }
+            }
+
+            // 2. Search Concepts
+            lesson.concepts.forEach { c ->
+                val match = c.termUz.contains(qLower, true) ||
+                        c.termAr.contains(q, true) ||
+                        c.definitionUz.contains(qLower, true) ||
+                        c.sourceExample.contains(q, true) ||
+                        (qNormAr.isNotBlank() && normalizeArabicText(c.sourceExample).contains(qNormAr, true)) ||
+                        (qNormAr.isNotBlank() && normalizeArabicText(c.termAr).contains(qNormAr, true))
+
+                if (match) {
+                    results.add(
+                        FullBookSearchResult(
+                            resultKey = "concept_${c.id}",
+                            chapterId = chapter.id,
+                            chapterNumber = chapter.chapterNumber,
+                            chapterTitleUz = chapter.titleUz,
+                            chapterTitleAr = chapter.titleAr,
+                            pageNumber = c.pageRef,
+                            matchedTitle = "${c.termUz} (${c.termAr})",
+                            arabicSnippet = c.sourceExample,
+                            uzbekSnippet = c.definitionUz,
+                            category = "Kalit Tushuncha"
+                        )
+                    )
+                }
+            }
+
+            // 3. Search Proofs
+            lesson.proofs.forEach { pr ->
+                val match = pr.titleUz.contains(qLower, true) ||
+                        pr.uzbekTranslation.contains(qLower, true) ||
+                        pr.sourceRef.contains(qLower, true) ||
+                        pr.arabicText.contains(q, true) ||
+                        (qNormAr.isNotBlank() && normalizeArabicText(pr.arabicText).contains(qNormAr, true))
+
+                if (match) {
+                    results.add(
+                        FullBookSearchResult(
+                            resultKey = "proof_${pr.id}",
+                            chapterId = chapter.id,
+                            chapterNumber = chapter.chapterNumber,
+                            chapterTitleUz = chapter.titleUz,
+                            chapterTitleAr = chapter.titleAr,
+                            pageNumber = lesson.pdfStartPage,
+                            matchedTitle = "${pr.titleUz} (${pr.sourceRef})",
+                            arabicSnippet = pr.arabicText,
+                            uzbekSnippet = pr.uzbekTranslation,
+                            category = "Aqidaviy Dalil"
+                        )
+                    )
+                }
+            }
+
+            // 4. Search Debates
+            lesson.debates.forEach { d ->
+                val match = d.topicTitle.contains(qLower, true) ||
+                        d.ahlSunnahView.contains(qLower, true) ||
+                        d.opposingSchool.contains(qLower, true) ||
+                        d.opposingView.contains(qLower, true) ||
+                        d.refutationUz.contains(qLower, true)
+
+                if (match) {
+                    results.add(
+                        FullBookSearchResult(
+                            resultKey = "debate_${d.id}",
+                            chapterId = chapter.id,
+                            chapterNumber = chapter.chapterNumber,
+                            chapterTitleUz = chapter.titleUz,
+                            chapterTitleAr = chapter.titleAr,
+                            pageNumber = lesson.pdfStartPage,
+                            matchedTitle = d.topicTitle,
+                            arabicSnippet = "",
+                            uzbekSnippet = "Ahli Sunna: ${d.ahlSunnahView}\nRaddiya: ${d.refutationUz}",
+                            category = "Munozara & Raddiya"
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    return results
+}
+
+@Composable
+private fun BookSearchResultCard(
+    result: FullBookSearchResult,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .testTag("search_result_${result.resultKey}"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp)
+        ) {
+            // Header Row: Category pill + Chapter & Page pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = when (result.category) {
+                        "Matn / Masala" -> TamhidEmerald.copy(alpha = 0.12f)
+                        "Kalit Tushuncha" -> TamhidSageContainer
+                        "Aqidaviy Dalil" -> TamhidGoldContainer.copy(alpha = 0.5f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ) {
+                    Text(
+                        text = result.category,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = TamhidEmeraldDark,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    Text(
+                        text = "${result.chapterNumber}-bob • ${result.pageNumber}-bet",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Chapter and Matched Title
+            Text(
+                text = "${result.chapterTitleUz} — ${result.matchedTitle}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            // Arabic Snippet (if available)
+            if (result.arabicSnippet.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = TamhidSageContainer.copy(alpha = 0.25f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = result.arabicSnippet,
+                        style = AmiriQuranArabicStyle.copy(fontSize = 17.sp, lineHeight = 28.sp),
+                        color = TamhidEmeraldDark,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+            }
+
+            // Uzbek Snippet
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = result.uzbekSnippet,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Footer: Jump to reader affordance
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                    contentDescription = null,
+                    tint = TamhidEmerald,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = "Kitobda o'qish",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = TamhidEmerald
+                )
+            }
+        }
+    }
+}
 

@@ -3,8 +3,6 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
-import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +29,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.audio.ElevenLabsTtsManager
+import com.example.data.audio.TtsPlaybackState
+import java.security.MessageDigest
 import com.example.data.local.Bookmark
 import com.example.ui.theme.AmiriQuranArabicStyle
 import com.example.ui.theme.TamhidEmerald
@@ -71,30 +74,19 @@ fun XatchopDetailScreen(
     var isNoteSaved by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // TTS Setup
-    var tts: TextToSpeech? by remember { mutableStateOf(null) }
-    var isTtsReady by remember { mutableStateOf(false) }
-    var isSpeaking by remember { mutableStateOf(false) }
+    val displayArabic = bookmark.arabicFullText.ifBlank { bookmark.arabicQuote }
+    val ttsManager = remember { ElevenLabsTtsManager.getInstance(context) }
+    val playbackState by ttsManager.playbackState.collectAsState()
 
-    DisposableEffect(Unit) {
-        var ttsInstance: TextToSpeech? = null
-        ttsInstance = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val res = ttsInstance?.setLanguage(Locale.forLanguageTag("ar"))
-                if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    ttsInstance?.language = Locale.getDefault()
-                }
-                isTtsReady = true
-            }
-        }
-        tts = ttsInstance
-        onDispose {
-            ttsInstance?.stop()
-            ttsInstance?.shutdown()
-        }
+    val textHash = remember(displayArabic) {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val bytes = digest.digest(displayArabic.trim().toByteArray())
+        bytes.joinToString("") { "%02x".format(it) }.take(16)
     }
 
-    val displayArabic = bookmark.arabicFullText.ifBlank { bookmark.arabicQuote }
+    val isThisLoading = playbackState is TtsPlaybackState.Loading && (playbackState as TtsPlaybackState.Loading).textHash == textHash
+    val isThisPlaying = playbackState is TtsPlaybackState.Playing && (playbackState as TtsPlaybackState.Playing).textHash == textHash
+    val isThisPaused = playbackState is TtsPlaybackState.Paused && (playbackState as TtsPlaybackState.Paused).textHash == textHash
     val scrollState = rememberScrollState()
 
     Scaffold(
@@ -168,31 +160,42 @@ fun XatchopDetailScreen(
                             color = TamhidEmerald
                         )
 
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // TTS Audio Button
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            // TTS Audio Button (ElevenLabs + Cache + Fallback)
                             IconButton(
                                 onClick = {
-                                    if (isSpeaking) {
-                                        tts?.stop()
-                                        isSpeaking = false
-                                    } else {
-                                        val textToSpeak = displayArabic.ifBlank { bookmark.translation }
-                                        tts?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, "xatchop_tts")
-                                        isSpeaking = true
+                                    val textToSpeak = displayArabic.ifBlank { bookmark.translation }
+                                    ttsManager.playOrPause(textToSpeak) {
+                                        Toast.makeText(
+                                            context,
+                                            "ElevenLabs API kaliti kiritilmagan. Oflayn ovoz ishlatildi.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     }
                                 },
                                 modifier = Modifier
                                     .size(38.dp)
                                     .clip(CircleShape)
-                                    .background(TamhidSageContainer),
-                                enabled = isTtsReady
+                                    .background(TamhidSageContainer)
                             ) {
-                                Icon(
-                                    imageVector = if (isSpeaking) Icons.Outlined.Stop else Icons.AutoMirrored.Outlined.VolumeUp,
-                                    contentDescription = "Ovozli o'qish",
-                                    tint = TamhidEmeraldDark,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                if (isThisLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = TamhidEmeraldDark
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = when {
+                                            isThisPlaying -> Icons.Filled.Pause
+                                            isThisPaused -> Icons.Filled.PlayArrow
+                                            else -> Icons.AutoMirrored.Outlined.VolumeUp
+                                        },
+                                        contentDescription = "Ovozli o'qish",
+                                        tint = TamhidEmeraldDark,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
 
                             // Copy Arabic Button
@@ -341,72 +344,30 @@ fun XatchopDetailScreen(
                 }
             }
 
-            // 4. Primary Actions (Jump to Book Source + Share)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // 4. Primary Action (Jump to Book Source)
+            Button(
+                onClick = { onNavigateToSource(bookmark) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = TamhidEmerald,
+                    contentColor = Color.White
+                ),
+                elevation = ButtonDefaults.buttonElevation(0.dp)
             ) {
-                // Navigate to Source in Book
-                Button(
-                    onClick = { onNavigateToSource(bookmark) },
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = TamhidEmerald,
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(0.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.MenuBook,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Kitobda ochish",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Share Button
-                OutlinedButton(
-                    onClick = {
-                        val shareText = """
-«Kitob at-Tamhid li-qavoid at-tavhid»
-Imom Abu as-Sano Mahmud ibn Zayd al-Lomishiy
-
-$displayArabic
-
-Tarjima:
-${bookmark.translation}
-
-Manba: ${bookmark.chapterId}, ${bookmark.pageNumber}-bet
-                        """.trimIndent()
-
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                            type = "text/plain"
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "Xatcho'pni ulashish"))
-                    },
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TamhidEmerald)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Ulashish",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Kitobda ochish",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

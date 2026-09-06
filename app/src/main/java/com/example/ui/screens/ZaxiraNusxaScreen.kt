@@ -3,7 +3,6 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -365,15 +364,9 @@ fun ZaxiraNusxaScreen(
             },
             dismissButton = {
                 TextButton(
-                    onClick = {
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            putExtra(Intent.EXTRA_TEXT, exportedJsonString)
-                            type = "application/json"
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "Zaxira nusxani ulashish"))
-                    }
+                    onClick = { showExportDialog = false }
                 ) {
-                    Text("Ulashish", color = TamhidEmerald)
+                    Text("Yopish", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             containerColor = MaterialTheme.colorScheme.surface,

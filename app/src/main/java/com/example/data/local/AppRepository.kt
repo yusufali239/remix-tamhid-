@@ -65,6 +65,7 @@ class AppRepository(context: Context) {
         tags: String = ""
     ) {
         val existing = bookmarkDao.getBookmarkById(id)
+            ?: bookmarkDao.getBookmarkByChapterAndSection(chapterId, sectionId)
         if (existing != null) {
             bookmarkDao.deleteBookmark(existing)
         } else {

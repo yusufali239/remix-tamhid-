@@ -3,8 +3,6 @@ package com.example.ui.components
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -33,7 +31,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.audio.ElevenLabsTtsManager
+import com.example.data.audio.TtsPlaybackState
 import com.example.ui.theme.*
+import java.security.MessageDigest
 import java.util.Locale
 
 @Composable
@@ -50,40 +51,21 @@ fun ArabicParagraphCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var isAudioPlaying by remember { mutableStateOf(false) }
     var showFootnotes by remember { mutableStateOf(false) }
-    var isTtsReady by remember { mutableStateOf(false) }
-    var tts: TextToSpeech? by remember { mutableStateOf(null) }
 
-    DisposableEffect(Unit) {
-        var ttsInstance: TextToSpeech? = null
-        ttsInstance = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val res = ttsInstance?.setLanguage(Locale.forLanguageTag("ar"))
-                if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    ttsInstance?.language = Locale.getDefault()
-                }
-                isTtsReady = true
-            }
-        }
-        ttsInstance.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {
-                isAudioPlaying = true
-            }
-            override fun onDone(utteranceId: String?) {
-                isAudioPlaying = false
-            }
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) {
-                isAudioPlaying = false
-            }
-        })
-        tts = ttsInstance
-        onDispose {
-            ttsInstance.stop()
-            ttsInstance.shutdown()
-        }
+    val ttsManager = remember { ElevenLabsTtsManager.getInstance(context) }
+    val playbackState by ttsManager.playbackState.collectAsState()
+
+    val textHash = remember(arabicText) {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val bytes = digest.digest(arabicText.trim().toByteArray())
+        bytes.joinToString("") { "%02x".format(it) }.take(16)
     }
+
+    val isThisLoading = playbackState is TtsPlaybackState.Loading && (playbackState as TtsPlaybackState.Loading).textHash == textHash
+    val isThisPlaying = playbackState is TtsPlaybackState.Playing && (playbackState as TtsPlaybackState.Playing).textHash == textHash
+    val isThisPaused = playbackState is TtsPlaybackState.Paused && (playbackState as TtsPlaybackState.Paused).textHash == textHash
+    val isElevenLabsAudio = (playbackState as? TtsPlaybackState.Playing)?.isElevenLabs == true
 
     // Pulsing audio animation simulation
     val infiniteTransition = rememberInfiniteTransition(label = "audio_pulse")
@@ -156,33 +138,40 @@ fun ArabicParagraphCard(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Audio recital mode toggle (Real TextToSpeech)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Audio recital mode toggle (ElevenLabs REST API + Local Audio Cache + Fallback)
                     IconButton(
                         onClick = {
-                            if (isAudioPlaying) {
-                                tts?.stop()
-                                isAudioPlaying = false
-                            } else {
-                                if (isTtsReady && tts != null) {
-                                    val res = tts?.speak(arabicText, TextToSpeech.QUEUE_FLUSH, null, "p_${paragraphNumber}_$pageNumber")
-                                    if (res == TextToSpeech.SUCCESS) {
-                                        isAudioPlaying = true
-                                    } else {
-                                        Toast.makeText(context, "Ovozli qiroatni ishga tushirib bo'lmadi", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    Toast.makeText(context, "Ovoz moduli yuklanmoqda...", Toast.LENGTH_SHORT).show()
-                                }
+                            ttsManager.playOrPause(arabicText) {
+                                Toast.makeText(
+                                    context,
+                                    "ElevenLabs API kaliti kerak. Oflayn ovoz moduli ishlatildi.",
+                                    Toast.LENGTH_LONG
+                                ).show()
                             }
                         },
                         modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(
-                            imageVector = if (isAudioPlaying) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Outlined.VolumeUp,
-                            contentDescription = "Qiroat",
-                            tint = if (isAudioPlaying) MadrasaGold else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        if (isThisLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MadrasaGold
+                            )
+                        } else {
+                            Icon(
+                                imageVector = when {
+                                    isThisPlaying -> Icons.Filled.PauseCircle
+                                    isThisPaused -> Icons.Filled.PlayCircle
+                                    else -> Icons.AutoMirrored.Outlined.VolumeUp
+                                },
+                                contentDescription = "Qiroat",
+                                tint = if (isThisPlaying || isThisPaused) MadrasaGold else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     // Copy button
@@ -224,7 +213,7 @@ fun ArabicParagraphCard(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(
-                        if (isAudioPlaying)
+                        if (isThisPlaying)
                             MadrasaEmeraldLight.copy(alpha = 0.12f * pulseAlpha)
                         else
                             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
@@ -250,7 +239,7 @@ fun ArabicParagraphCard(
                         textAlign = TextAlign.Right
                     )
 
-                    if (isAudioPlaying) {
+                    if (isThisPlaying) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -263,7 +252,7 @@ fun ArabicParagraphCard(
                                     .background(MadrasaGold)
                             )
                             Text(
-                                text = "Muallif matni ravon o'qilmoqda...",
+                                text = if (isElevenLabsAudio) "ElevenLabs HD qiroati ijro etilmoqda..." else "Matn qiroat qilinmoqda (Oflayn)...",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MadrasaGold,
                                 fontWeight = FontWeight.Medium

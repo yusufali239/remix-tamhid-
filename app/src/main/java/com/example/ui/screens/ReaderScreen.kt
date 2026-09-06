@@ -446,8 +446,10 @@ private fun ReadingContentList(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         items(paragraphs, key = { it.paragraphNumber }) { p ->
-            val bookmarkId = "p${p.pageNumber}_${chapterId}"
-            val isBookmarked = bookmarks.any { it.id == bookmarkId }
+            val bookmarkId = "${chapterId}_${p.paragraphNumber}"
+            val isBookmarked = bookmarks.any { 
+                it.id == bookmarkId || (it.chapterId == chapterId && it.sectionId == p.paragraphNumber.toString()) 
+            }
 
             ReaderParagraphBlock(
                 paragraph = p,

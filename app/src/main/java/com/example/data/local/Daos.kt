@@ -16,6 +16,9 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks WHERE id = :id LIMIT 1")
     suspend fun getBookmarkById(id: String): Bookmark?
 
+    @Query("SELECT * FROM bookmarks WHERE chapterId = :chapterId AND sectionId = :sectionId LIMIT 1")
+    suspend fun getBookmarkByChapterAndSection(chapterId: String, sectionId: String): Bookmark?
+
     @Query("SELECT EXISTS(SELECT 1 FROM bookmarks WHERE id = :id)")
     fun isBookmarked(id: String): Flow<Boolean>
 

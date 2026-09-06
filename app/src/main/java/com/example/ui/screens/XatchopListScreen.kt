@@ -1,6 +1,5 @@
 package com.example.ui.screens
 
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,8 +48,6 @@ fun XatchopListScreen(
     modifier: Modifier = Modifier,
     chapters: List<Chapter> = emptyList()
 ) {
-    val context = LocalContext.current
-
     // Group bookmarks by chapter
     val grouped = remember(bookmarks) {
         bookmarks.groupBy { it.chapterId }
@@ -222,23 +218,7 @@ fun XatchopListScreen(
                             topicTitleUz = topicUz,
                             topicTitleAr = topicAr,
                             onClick = { onBookmarkClick(bookmark) },
-                            onDelete = { onDeleteBookmark(bookmark.id) },
-                            onShare = {
-                                val shareText = """
-${bookmark.arabicQuote}
-
-Tarjima:
-${bookmark.translation}
-
-Mavzu: $topicUz ($topicAr)
-Manba: ${bookmark.chapterId}, ${bookmark.pageNumber}-bet
-                                """.trimIndent()
-                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                    putExtra(Intent.EXTRA_TEXT, shareText)
-                                    type = "text/plain"
-                                }
-                                context.startActivity(Intent.createChooser(sendIntent, "Ulashish"))
-                            }
+                            onDelete = { onDeleteBookmark(bookmark.id) }
                         )
                     }
                 }
@@ -254,7 +234,6 @@ private fun NotionBookmarkCard(
     topicTitleAr: String,
     onClick: () -> Unit,
     onDelete: () -> Unit,
-    onShare: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -290,29 +269,16 @@ private fun NotionBookmarkCard(
                     )
                 }
 
-                Row {
-                    IconButton(
-                        onClick = onShare,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Share,
-                            contentDescription = "Ulashish",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.DeleteOutline,
-                            contentDescription = "O'chirish",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.DeleteOutline,
+                        contentDescription = "O'chirish",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
 

@@ -27,7 +27,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DictionaryWord::class,
         DailyActivityEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class TamhidDatabase : RoomDatabase() {
@@ -168,6 +168,21 @@ abstract class TamhidDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try {
+                    // Update legacy bookmark IDs (p{pageNumber}_{chapterId}) to unique paragraph-based IDs ({chapterId}_{sectionId})
+                    db.execSQL("""
+                        UPDATE `bookmarks`
+                        SET `id` = `chapterId` || '_' || `sectionId`
+                        WHERE `id` LIKE 'p%_%' AND `sectionId` != ''
+                    """.trimIndent())
+                } catch (e: Exception) {
+                    // Safe fallback if primary key conflict occurs with legacy duplicates
+                }
+            }
+        }
+
         fun getDatabase(context: Context): TamhidDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -175,7 +190,7 @@ abstract class TamhidDatabase : RoomDatabase() {
                     TamhidDatabase::class.java,
                     "at_tamhid_madrasa_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     // Strict constraint: NEVER use fallbackToDestructiveMigration
                     .build()
                 INSTANCE = instance
